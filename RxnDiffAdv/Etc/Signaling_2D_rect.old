@@ -1,0 +1,158 @@
+%
+% simulate a reaction-diffusion advection equation in a rectangular domain
+% using a finite difference method
+%
+% a(t,x,y) denotes the active form of the signaling protein
+% b(t,x,y) denotes the inactive form of the signaling protein
+%
+% Calina Copos (Sept 27, 2016)
+%
+
+close all;
+clear;
+
+% set parameters
+% --------------
+
+dt      = 0.0001;       % time step
+nx      = 50;          % number of space steps
+Nt       = 100000;     % number of time steps 
+tplot   = 1000;        % output time steps
+
+dx = 1/nx;              % spacing
+
+Da = 1.0;%0.01;              % diffusion coefficient for active          
+Db = 1.0;%0.2;               % diffusion coefficient for inactive
+
+mu = 0.067;
+nu = 1.0;
+K = 1.0;
+
+u1 = 0.1;               % advection flow speed in x-direction (assumed positive)
+u2 = 0.1;               % advection flow speed in y-direction (assumed positive)
+
+% per time step hoping rates from diffusion
+% --------------
+pa = dt*Da/dx^2;
+pb = dt*Db/dx^2;
+
+% per time step hoping rates from advection
+% --------------
+da = dt/dx;
+db = dt/dx;
+
+% initialize matrix corresponding to the diffusion operator (Euler's method) 
+% --------------
+e = ones(nx,1);
+Lx = spdiags([ e -2*e e], [-1 0 1],nx,nx);
+
+% -- no flux conditions (u_x = 0)
+%Lx(1,1) = -2;
+%Lx(1,2) = 2;
+%Lx(nx,nx-1) = 2;
+%Lx(nx,nx) = -2;
+
+% -- homogeneous Dirichlet conditions (u=0)
+%Lx(1,1) = -2;
+%Lx(1,2) = 1;
+%Lx(nx,nx-1) = 1;
+%Lx(nx,nx) = -2;
+
+% -- homogeneous Robin conditions (u_x + alpha*u = 0)
+%Lx(1,1) = -2*(1-alpha*dx);
+%Lx(1,2) = 2;
+%Lx(nx,nx-1) = 2;
+%Lx(nx,nx) = -2*(1+alpha*dx);
+
+Ly = spdiags([ e -2*e e], [-1 0 1],nx,nx);
+%Ly(1,1) = -2;
+%Ly(1,2) = 2;
+%Ly(nx,nx-1) = 2;
+%Ly(nx,nx) = -2;
+
+% -- Dirichlet conditions
+Ly(1,1) = -2;
+Ly(1,2) = 1;
+Ly(nx,nx-1) = 1;
+Ly(nx,nx) = -2;
+
+% -- homogeneous Robin conditions
+%Lx(1,1) = -2*(1-alpha*dx);
+%Lx(1,2) = 2;
+%Lx(nx,nx-1) = 2;
+%Lx(nx,nx) = -2*(1+alpha*dx);
+
+% initialize matrix corresponding to the advection operator (1st, upwind)
+% --------------
+e = ones(nx,1);
+Dx = spdiags([-1*e e 0*e], [-1 0 1],nx,nx);
+
+% -- no flux conditions
+Dx(1,1) = 0;
+Dx(1,2) = 0;
+Dx(nx,nx-1) = -1;
+Dx(nx,nx) = 1;
+
+Dy = spdiags([-1*e e 0*e], [-1 0 1],nx,nx);
+Dy(1,1) = 0;
+Dy(1,2) = 0;
+Dy(nx,nx-1) = -1;
+Dy(nx,nx) = 1;
+
+% initialize variables
+% --------------
+a = zeros(nx,nx);
+b = zeros(nx,nx);
+
+%set initial conditions
+% --------------
+a = randn(nx,nx);
+b = randn(nx,nx);
+
+% reaction component
+% --------------
+Ra = (mu+a.^2/(K+a.^2))*b-nu*a;
+Rb = -Ra;
+
+% run simulation
+% --------------
+runMode = 'A'; % mode B is animation of position 
+for t=1:Nt
+    Adiff = zeros(nx,nx);
+    Bdiff = zeros(nx,nx);
+    Adiff = a*Lx+Ly*a;
+    Bdiff = b*Lx+Ly*b;
+    
+    Aadv = u1*a*Dx+u2*Dy*a;
+    Badv = u1*b*Dx+u2*Dy*b;
+    
+    %anew = a + dt*Ra + pa*Adiff + da*Aadv;
+    %bnew = b + dt*Rb + pb*Bdiff + db*Badv;
+    anew = a + pa*Adiff;
+    bnew = b + pb*Bdiff;
+    
+    % update
+    a = anew;
+    b = bnew;
+    
+    switch(runMode)
+    case 'B'
+        if mod(t,tplot) == 0 
+            pcolor(full(a));
+            shading flat;
+            colorbar; colormap('hot');
+            caxis([-10 10]);
+            title(sprintf('time=%g',t*dt))
+            getframe(gcf);
+        end
+    end
+end
+
+% plot end results
+% --------------
+pcolor(full(a));
+shading flat;
+colorbar; colormap('hot');
+title(sprintf('time=%g',t*dt))
+caxis([-10 10]);
+
